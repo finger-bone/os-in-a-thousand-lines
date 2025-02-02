@@ -4,7 +4,7 @@ __attribute__((naked))
 __attribute__((aligned(4)))
 void kernel_entry(void) {
     __asm__ __volatile__(
-        "csrw sscratch, sp\n"
+        "csrrw sp, sscratch, sp\n"
         "addi sp, sp, -4 * 31\n"
         "sw ra,  4 * 0(sp)\n"
         "sw gp,  4 * 1(sp)\n"
@@ -79,9 +79,9 @@ void kernel_entry(void) {
 }
 
 void handle_trap(struct trap_frame *f) {
-    uint32_t scause = READ_CSR(scause);
-    uint32_t stval = READ_CSR(stval);
-    uint32_t user_pc = READ_CSR(sepc);
+    u32 scause = READ_CSR(scause);
+    u32 stval = READ_CSR(stval);
+    u32 user_pc = READ_CSR(sepc);
 
     PANIC("unexpected trap scause=%x, stval=%x, sepc=%x\n", scause, stval, user_pc);
 }

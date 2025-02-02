@@ -2,7 +2,7 @@
 
 #include "common.h"
 
-#define PROCS_MAX 16 // Maximum number of processes
+#define PROCS_MAX 32 // Maximum number of processes
 
 #define PROC_UNUSED 0   // Unused process control structure
 #define PROC_RUNNABLE 1 // Runnable process
@@ -13,9 +13,16 @@ struct process
     int state;  // Process state: PROC_UNUSED or PROC_RUNNABLE
     vaddr_t sp; // Stack pointer
     /* 4KB */
-    uint8_t stack[8192]; // Kernel stack
+    u8 stack[8192]; // Kernel stack
+    u32 *page_table; // Page table
 };
 
-struct process *create_process(uint32_t pc);
-__attribute__((naked)) void switch_context(uint32_t *prev_sp,
-                                           uint32_t *next_sp);
+struct process *create_process(u32 pc);
+__attribute__((naked)) void switch_context(u32 *prev_sp,
+                                           u32 *next_sp);
+
+extern struct process *current_proc; // Currently running process
+extern struct process *idle_proc;    // Idle process
+extern char __kernel_base[];
+
+void yield();
