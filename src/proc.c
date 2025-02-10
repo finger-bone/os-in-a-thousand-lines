@@ -2,14 +2,26 @@
 #include "exception.h"
 #include "mem_alloc.h"
 #include "mem_page.h"
+#include "kernel.h"
 extern char __free_ram[], __free_ram_end[];
 
-__attribute__((naked)) void switch_context(u32 *prev_sp,
-                                           u32 *next_sp) {
+__attribute__((naked)) void user_entry(void) {
     __asm__ __volatile__(
-        // Save callee-saved registers onto the current process's stack.
-        "addi sp, sp, -13 * 4\n" // Allocate stack space for 13 4-byte registers
-        "sw ra,  0  * 4(sp)\n"   // Save callee-saved registers only
+        "csrw sepc, %[sepc]\n"
+        "csrw sstatus, %[sstatus]\n"
+        "sret\n"
+        :
+        : [sepc] "r" (USER_BASE),
+          [sstatus] "r" (SSTATUS_SPIE | SSTATUS_SUM)
+    );
+}
+
+
+__attribute__((naked)) void switch_context(u32 *prev_sp,
+    u32 *next_sp) {
+    __asm__ __volatile__(
+        "addi sp, sp, -13 * 4\n"
+        "sw ra,  0  * 4(sp)\n"
         "sw s0,  1  * 4(sp)\n"
         "sw s1,  2  * 4(sp)\n"
         "sw s2,  3  * 4(sp)\n"
@@ -22,13 +34,9 @@ __attribute__((naked)) void switch_context(u32 *prev_sp,
         "sw s9,  10 * 4(sp)\n"
         "sw s10, 11 * 4(sp)\n"
         "sw s11, 12 * 4(sp)\n"
-
-        // Switch the stack pointer.
-        "sw sp, (a0)\n"         // *prev_sp = sp;
-        "lw sp, (a1)\n"         // Switch stack pointer (sp) here
-
-        // Restore callee-saved registers from the next process's stack.
-        "lw ra,  0  * 4(sp)\n"  // Restore callee-saved registers only
+        "sw sp, (a0)\n"
+        "lw sp, (a1)\n"
+        "lw ra,  0  * 4(sp)\n"
         "lw s0,  1  * 4(sp)\n"
         "lw s1,  2  * 4(sp)\n"
         "lw s2,  3  * 4(sp)\n"
@@ -41,15 +49,15 @@ __attribute__((naked)) void switch_context(u32 *prev_sp,
         "lw s9,  10 * 4(sp)\n"
         "lw s10, 11 * 4(sp)\n"
         "lw s11, 12 * 4(sp)\n"
-        "addi sp, sp, 13 * 4\n"  // We've popped 13 4-byte registers from the stack
+        "addi sp, sp, 13 * 4\n"
         "ret\n"
     );
 }
 
 struct process procs[PROCS_MAX]; // All process control structures.
 
-struct process *create_process(u32 pc) {
-    // Find an unused process control structure.
+
+struct process *create_process(const void *image, size_t image_size) {
     struct process *proc = NULL;
     int i;
     for (i = 0; i < PROCS_MAX; i++) {
@@ -59,12 +67,9 @@ struct process *create_process(u32 pc) {
         }
     }
 
-
     if (!proc)
         PANIC("no free process slots");
 
-    // Stack callee-saved registers. These register values will be restored in
-    // the first context switch in switch_context.
     u32 *sp = (u32 *) &proc->stack[sizeof(proc->stack)];
     *--sp = 0;                      // s11
     *--sp = 0;                      // s10
@@ -78,18 +83,28 @@ struct process *create_process(u32 pc) {
     *--sp = 0;                      // s2
     *--sp = 0;                      // s1
     *--sp = 0;                      // s0
-    *--sp = (u32) pc;          // ra
+    *--sp = (u32) user_entry;  // ra
 
     u32 *page_table = (u32 *) alloc_pages(1);
+
+    // Kernel pages.
     for (paddr_t paddr = (paddr_t) __kernel_base;
          paddr < (paddr_t) __free_ram_end; paddr += PAGE_SIZE)
         map_page(page_table, paddr, paddr, PAGE_R | PAGE_W | PAGE_X);
-    // printf("page_table=%x\n", page_table);
-    // Initialize fields.
+
+    // User pages.
+    for (u32 off = 0; off < image_size; off += PAGE_SIZE) {
+        paddr_t page = alloc_pages(1);
+        size_t remaining = image_size - off;
+        size_t copy_size = PAGE_SIZE <= remaining ? PAGE_SIZE : remaining;
+        memcpy((void *) page, image + off, copy_size);
+        map_page(page_table, USER_BASE + off, page,
+                 PAGE_U | PAGE_R | PAGE_W | PAGE_X);
+    }
+
     proc->pid = i + 1;
     proc->state = PROC_RUNNABLE;
     proc->sp = (u32) sp;
-    
     proc->page_table = page_table;
     return proc;
 }
@@ -97,8 +112,8 @@ struct process *create_process(u32 pc) {
 struct process *current_proc; // Currently running process
 struct process *idle_proc;    // Idle process
 
+
 void yield(void) {
-    // Search for a runnable process
     struct process *next = idle_proc;
     for (int i = 0; i < PROCS_MAX; i++) {
         struct process *proc = &procs[(current_proc->pid + i) % PROCS_MAX];
@@ -108,22 +123,21 @@ void yield(void) {
         }
     }
 
-    // If there's no runnable process other than the current one, return and continue processing
     if (next == current_proc)
         return;
-     __asm__ __volatile__(
+
+    struct process *prev = current_proc;
+    current_proc = next;
+
+    __asm__ __volatile__(
         "sfence.vma\n"
         "csrw satp, %[satp]\n"
         "sfence.vma\n"
         "csrw sscratch, %[sscratch]\n"
         :
-        // Don't forget the trailing comma!
         : [satp] "r" (SATP_SV32 | ((u32) next->page_table / PAGE_SIZE)),
           [sscratch] "r" ((u32) &next->stack[sizeof(next->stack)])
     );
 
-    // Context switch
-    struct process *prev = current_proc;
-    current_proc = next;
     switch_context(&prev->sp, &next->sp);
 }

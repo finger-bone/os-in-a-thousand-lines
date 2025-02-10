@@ -2,6 +2,8 @@
 
 #include "common.h"
 
+#define SCAUSE_ECALL 8
+
 __attribute__((naked))
 __attribute__((aligned(4)))
 void kernel_entry(void);

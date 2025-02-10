@@ -6,6 +6,7 @@
 
 #define PROC_UNUSED 0   // Unused process control structure
 #define PROC_RUNNABLE 1 // Runnable process
+#define PROC_EXITED   2
 
 struct process
 {
@@ -17,7 +18,7 @@ struct process
     u32 *page_table; // Page table
 };
 
-struct process *create_process(u32 pc);
+struct process *create_process(const void *image, size_t image_size);
 __attribute__((naked)) void switch_context(u32 *prev_sp,
                                            u32 *next_sp);
 

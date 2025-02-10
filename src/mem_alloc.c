@@ -4,7 +4,7 @@
 char __free_ram[], __free_ram_end[];
 
 paddr_t alloc_pages(u32 n) {
-    static paddr_t next_paddr = (paddr_t)__free_ram;
+    static paddr_t next_paddr = (paddr_t) __free_ram;
     paddr_t paddr = next_paddr;
     next_paddr += n * PAGE_SIZE;
 
