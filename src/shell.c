@@ -2,7 +2,7 @@
 
 void main(void) {
     while (1) {
-prompt:
+    prompt:
         printf("> ");
         char cmdline[128];
         for (int i = 0;; i++) {

@@ -1,7 +1,6 @@
 #include "mem_page.h"
-#include "mem_alloc.h"
 #include "exception.h"
-
+#include "mem_alloc.h"
 
 void map_page(u32 *table1, u32 vaddr, paddr_t paddr, u32 flags) {
     if (!is_aligned(vaddr, PAGE_SIZE))
@@ -17,6 +16,6 @@ void map_page(u32 *table1, u32 vaddr, paddr_t paddr, u32 flags) {
     }
 
     u32 vpn0 = (vaddr >> 12) & 0x3ff;
-    u32 *table0 = (u32 *) ((table1[vpn1] >> 10) * PAGE_SIZE);
+    u32 *table0 = (u32 *)((table1[vpn1] >> 10) * PAGE_SIZE);
     table0[vpn0] = ((paddr / PAGE_SIZE) << 10) | flags | PAGE_V;
 }

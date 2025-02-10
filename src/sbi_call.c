@@ -1,5 +1,5 @@
-#include "common.h"
 #include "sbi_call.h"
+#include "common.h"
 
 struct sbiret sbi_call(long arg0, long arg1, long arg2, long arg3, long arg4,
                        long arg5, long fid, long eid) {
@@ -25,6 +25,6 @@ void putchar(char ch) {
 }
 
 long getchar(void) {
-  struct sbiret ret = sbi_call(0, 0, 0, 0, 0, 0, 0, 2);
-  return ret.error;
+    struct sbiret ret = sbi_call(0, 0, 0, 0, 0, 0, 0, 2);
+    return ret.error;
 }

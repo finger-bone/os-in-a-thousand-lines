@@ -4,15 +4,13 @@
 
 #define SCAUSE_ECALL 8
 
-__attribute__((naked))
-__attribute__((aligned(4)))
-void kernel_entry(void);
-
+__attribute__((naked)) __attribute__((aligned(4))) void kernel_entry(void);
 
 #define PANIC(fmt, ...)                                                        \
     do {                                                                       \
         printf("PANIC: %s:%d: " fmt "\n", __FILE__, __LINE__, ##__VA_ARGS__);  \
-        while (1) {}                                                           \
+        while (1) {                                                            \
+        }                                                                      \
     } while (0)
 
 struct trap_frame {
@@ -58,7 +56,6 @@ struct trap_frame {
 
 #define WRITE_CSR(reg, value)                                                  \
     do {                                                                       \
-        u32 __tmp = (value);                                              \
+        u32 __tmp = (value);                                                   \
         __asm__ __volatile__("csrw " #reg ", %0" ::"r"(__tmp));                \
     } while (0)
-    

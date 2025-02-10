@@ -1,7 +1,7 @@
 #include "kernel.h"
 #include "exception.h"
-#include "proc.h"
 #include "mem_alloc.h"
+#include "proc.h"
 
 extern char __bss[], __bss_end[], __stack_top[];
 
@@ -13,25 +13,25 @@ extern struct process procs[PROCS_MAX];
 void delay() {
     int large_number = 0x003fff;
     for (int i = 0; i < large_number; i++) {
-        for(int j = 0; j < large_number; j++) {
+        for (int j = 0; j < large_number; j++) {
             __asm__ __volatile__("nop");
         }
     }
 }
 
 void kernel_main(void) {
-    memset(__bss, 0, (size_t) __bss_end - (size_t) __bss);
+    memset(__bss, 0, (size_t)__bss_end - (size_t)__bss);
 
     printf("\n\n");
 
-    WRITE_CSR(stvec, (u32) kernel_entry);
+    WRITE_CSR(stvec, (u32)kernel_entry);
 
     idle_proc = create_process(NULL, 0); // updated!
-    idle_proc->pid = -1; // idle
+    idle_proc->pid = -1;                 // idle
     current_proc = idle_proc;
 
     // new!
-    create_process(_binary_shell_bin_start, (size_t) _binary_shell_bin_size);
+    create_process(_binary_shell_bin_start, (size_t)_binary_shell_bin_size);
 
     yield();
     PANIC("switched to idle process");
@@ -61,13 +61,12 @@ void kernel_main(void) {
 //     }
 // }
 
-__attribute__((section(".text.boot")))
-__attribute__((naked))
-void boot(void) {
+__attribute__((section(".text.boot"))) __attribute__((naked)) void boot(void) {
     __asm__ __volatile__(
         "mv sp, %[stack_top]\n" // Set the stack pointer
         "j kernel_main\n"       // Jump to the kernel main function
         :
-        : [stack_top] "r" (__stack_top) // Pass the stack top address as %[stack_top]
+        : [stack_top] "r"(
+            __stack_top) // Pass the stack top address as %[stack_top]
     );
 }
